@@ -1,0 +1,11 @@
+# Generated files
+*~
+*.elc
+*-pkg.el
+*.tar
+TAGS
+
+# Packages
+elpa
+/.cask
+dist
