@@ -38,8 +38,8 @@
 (require 'hierarchy)
 
 (cl-defstruct (klassified-position
-               (:constructor klassified-position-make)
-               (:conc-name klassified-position-))
+               (:constructor klassified--position-make)
+               (:conc-name klassified--position-))
   file
   line
   project)
@@ -48,6 +48,9 @@
                (:constructor klassified--classref-make)
                (:conc-name klassified--classref-))
   name)
+
+
+;;; Class
 
 (cl-defstruct (klassified-class
                (:constructor klassified--class-make)
@@ -73,12 +76,12 @@
 (defun klassified-class-filepath (class)
   "Return the file path defining CLASS relative to project."
   (if-let ((definition (klassified--class-definition class)))
-      (klassified-position-file definition)))
+      (klassified--position-file definition)))
 
 (defun klassified-class-projectpath (class)
   "Return the project path defining CLASS."
   (if-let ((definition (klassified--class-definition class)))
-      (klassified-position-project definition)))
+      (klassified--position-project definition)))
 
 (defun klassified-class-full-filepath (class)
   "Return absolute file path defining CLASS."
@@ -88,7 +91,7 @@
 (defun klassified-class-line (class)
   "Return the line number defining CLASS."
   (if-let ((definition (klassified--class-definition class)))
-      (klassified-position-line definition)))
+      (klassified--position-line definition)))
 
 (defun klassified-class-superclass-name (class)
   "Return the name of CLASS' superclass."
@@ -101,6 +104,131 @@
 This is useful when a class has a superclass that is part of another
 project.  In this class, the superclass can be a class-stub."
   (klassified--class-make :name name :stubp t))
+
+(defun klassified-goto-class (class)
+  "Open file defining CLASS and move point there."
+  (find-file (klassified-class-full-filepath class))
+  (widen)
+  (goto-char (point-min))
+  (forward-line (1- (klassified-class-line class))))
+
+
+;;; Methods
+
+(cl-defstruct (klassified-method
+               (:constructor klassified--method-make)
+               (:conc-name klassified--method-))
+  name
+  definition
+  class)
+
+(defun klassified-method-name (method)
+  "Return name of METHOD."
+  (klassified--method-name method))
+
+(defun klassified-method-class (method)
+  "Return class defining METHOD."
+  (klassified--method-class method))
+
+(defun klassified-method-classname (method)
+  "Return name of class defining METHOD."
+  (let ((class (klassified-method-class method)))
+    (klassified-class-name class)))
+
+(defun klassified-method-implemented-p (method)
+  "Return non-nil if METHOD is defined in its class.
+
+The purpose of this is to distinguish between proper method definitions and
+ghost methods that are part of a hierarchy defining METHOD but whose class
+does not."
+  ;; the method-name is nil in ghost methods
+  (klassified-method-name method))
+
+(defvar klassified-method-definition
+  (rx
+   (group-n 1
+            (or "my" "that")
+            "."
+            (+ (any word "_")))
+   (* space)
+   "=")
+  "Regexp matching the start of a method definition.
+
+When matching, this regexp puts the method name inside group 1.")
+
+(defun klassified-method-at-point (&optional js-buffer)
+  "Return method at point in JS-BUFFER.
+
+JS-BUFFER defaults to current buffer."
+  (with-current-buffer (or js-buffer (current-buffer))
+    (save-excursion
+      (let* ((class (klassified--class-at-point)))
+        (back-to-indentation)
+        (when (looking-at klassified-method-definition)
+          (klassified--method-make
+           :name (match-string-no-properties 1)
+           :definition (klassified-position-make)
+           :class class))))))
+
+(defun klassified--method-hierarchy-at-point (&optional js-buffer)
+  "Build hierarchy of method around point in JS-BUFFER.
+
+Return (hierarchy method class).
+
+JS-BUFFER defaults to current buffer."
+  (cl-destructuring-bind (class-hierarchy class) (klassified--class-hierarchy-at-point js-buffer)
+    (let* ((method (klassified-method-at-point js-buffer))
+           (method-hierarchy (klassified-class-hierarchy-to-method-hierarchy
+                              class-hierarchy
+                              (klassified-method-name method))))
+      (list method-hierarchy method class))))
+
+(defun klassified-move-to-method (method-name)
+  "Move point to METHOD-NAME after current position.
+
+Return point if METHOD-NAME is found, nil if not."
+  (let (matched)
+    (while
+        (and
+         (setq matched (re-search-forward klassified-method-definition nil t))
+         (not (string= (match-string 1) method-name))))
+    (if (and matched (string= (match-string 1) method-name))
+        (point)
+      nil)))
+
+(defun klassified-class-to-method (method-name class)
+  "Return the method named METHOD-NAME defined in CLASS if any."
+  (let ((ghost-method (klassified--method-make
+                       :name nil
+                       :definition nil
+                       :class class)))
+    (if (klassified-class-stub-p class)
+        ghost-method
+      (save-excursion
+        (save-restriction
+          (klassified-goto-class class)
+          (if (klassified-move-to-method method-name)
+              (klassified--method-make
+               :name method-name
+               :definition (klassified-position-make)
+               :class class)
+            ghost-method))))))
+
+(defun klassified-class-hierarchy-to-method-hierarchy (class-hierarchy method-name)
+  "Convert CLASS-HIERARCHY to a method hierarchy for METHOD-NAME."
+  (hierarchy-map-hierarchy (lambda (class _)
+                             (klassified-class-to-method method-name class))
+                           class-hierarchy))
+
+(defun klassified-goto-method (method)
+  "Open file defining METHOD and move point there."
+  (klassified-goto-class (klassified-method-class method))
+  (if (klassified-method-implemented-p method)
+      (klassified-move-to-method (klassified--method-name method))
+    (message "Method not implemented in this class")))
+
+
+;;; Search
 
 (defvar klassified--search-class-definition
   (rx
@@ -162,6 +290,59 @@ used instead."
        (directory-file-name default-directory)
        (match-string 1)
        (string-to-number (match-string 3))))))
+
+(defun klassified--search-regexp-to-pcre (regexp)
+  "Convert REGEXP to pcre form."
+  (replace-regexp-in-string "(\\?[0-9]*:" "("
+                            (xref--regexp-to-extended regexp)))
+
+(defun klassified--search-run-ag (directory)
+  "Return buffer containing result of running ag inside DIRECTORY."
+  (let ((buffer (get-buffer-create (concat "klassified--" directory))))
+    (with-current-buffer buffer
+      (erase-buffer)
+      (cd directory)
+      (let ((status (call-process
+                     "/usr/bin/ag"
+                     nil            ; stdin
+                     '(t t)         ; stdout ⇒ current buffer
+                     t              ; redisplay
+                     "--js" "--nocolor" "--nogroup" "--nomultiline"
+                     "--numbers" "--nopager" "--case-sensitive"
+                     "--silent" "--width=200"
+                     "--context=0"
+                     ;; if speed is an issue, we could replace this regexp by a
+                     ;; much faster one (e.g., "\.(abstractS|s)ubclass\(")
+                     (klassified--search-regexp-to-pcre klassified--search-class-definition)
+                     ".")))
+        (unless (equal status 0)
+          (error "Klassified: can't run ag (return status is '%s')" status))))
+    buffer))
+
+(defun klassified--search-collect-next-class ()
+  "Return next class in current buffer if any.
+
+Move point after match.
+
+Return the class, nil if none."
+  (when (re-search-forward klassified--search-ag-class-definition nil t)
+    (beginning-of-line)
+    (let ((class (klassified--search-class-at-point)))
+      (forward-line)
+      class)))
+
+(defun klassified--search-collect-classes (&optional buffer)
+  "Return a map of all classes in BUFFER.
+
+If BUFFER is nil, use `current-buffer' instead."
+  (let ((classes (make-hash-table :test 'equal)))
+    (with-current-buffer (or buffer (current-buffer))
+      (goto-char (point-min))
+      (while (when-let ((class (klassified--search-collect-next-class)))
+               (puthash (klassified-class-name class) class classes))))
+    classes))
+
+
 
 (defun klassified--class-at-point (&optional js-buffer)
   "Return class at point in JS-BUFFER.
@@ -251,67 +432,33 @@ defaults to result of function `klassified--current-line'."
              (class-name (or (and class-name
                                   (not (string-empty-p class-name))
                                   class-name)
-                             (file-name-sans-extension (file-name-nondirectory filepath))))
-             (line (or line (klassified--current-line))))
+                             (file-name-sans-extension (file-name-nondirectory filepath)))))
     (klassified--class-make
      :name class-name
      :superclass-ref (klassified--classref-make :name superclass-ref)
-     :definition (klassified-position-make
-                  :file filepath
-                  :line line
-                  :project projectpath)
+     :definition (klassified-position-make projectpath filepath line)
      :abstractp (equal "abstractSubclass" subclassfn))))
 
-(defun klassified--search-regexp-to-pcre (regexp)
-  "Convert REGEXP to pcre form."
-  (replace-regexp-in-string "(\\?[0-9]*:" "("
-                            (xref--regexp-to-extended regexp)))
+(defun klassified-position-make (&optional projectpath filepath line)
+  "Return a new position.
 
-(defun klassified--search-run-ag (directory)
-  "Return buffer containing result of running ag inside DIRECTORY."
-  (let ((buffer (get-buffer-create (concat "klassified--" directory))))
-    (with-current-buffer buffer
-      (erase-buffer)
-      (cd directory)
-      (let ((status (call-process
-                     "/usr/bin/ag"
-                     nil            ; stdin
-                     '(t t)         ; stdout ⇒ current buffer
-                     t              ; redisplay
-                     "--js" "--nocolor" "--nogroup" "--nomultiline"
-                     "--numbers" "--nopager" "--case-sensitive"
-                     "--silent" "--width=200"
-                     "--context=0"
-                     ;; if speed is an issue, we could replace this regexp by a
-                     ;; much faster one (e.g., "\.(abstractS|s)ubclass\(")
-                     (klassified--search-regexp-to-pcre klassified--search-class-definition)
-                     ".")))
-        (unless (equal status 0)
-          (error "Klassified: can't run ag (return status is '%s')" status))))
-    buffer))
+PROJECTPATH is a path to the JavaScript project containing all classes.
+PROJECTPATH defaults to the result of function `klassified-project-path'.
 
-(defun klassified--search-collect-next-class ()
-  "Return next class in current buffer if any.
+FILEPATH is a path to a JavaScript file relative to PROJECTPATH.  FILEPATH
+defaults to result of function `buffer-file-name' interpreted relatively
+to PROJECTPATH.
 
-Move point after match.
-
-Return the class, nil if none."
-  (when (re-search-forward klassified--search-ag-class-definition nil t)
-    (beginning-of-line)
-    (let ((class (klassified--search-class-at-point)))
-      (forward-line)
-      class)))
-
-(defun klassified--search-collect-classes (&optional buffer)
-  "Return a map of all classes in BUFFER.
-
-If BUFFER is nil, use `current-buffer' instead."
-  (let ((classes (make-hash-table :test 'equal)))
-    (with-current-buffer (or buffer (current-buffer))
-      (goto-char (point-min))
-      (while (when-let ((class (klassified--search-collect-next-class)))
-               (puthash (klassified-class-name class) class classes))))
-    classes))
+LINE is the line number at which MATCH-DATA started matching.  LINE
+defaults to result of function `klassified--current-line'."
+  (when-let ((projectpath (or projectpath (klassified-project-path)))
+             (filepath (or filepath (buffer-file-name)))
+             (filepath (file-relative-name filepath projectpath))
+             (line (or line (klassified--current-line))))
+    (klassified--position-make
+     :file filepath
+     :line line
+     :project projectpath)))
 
 (defun klassified-get-superclass (class classes)
   "Return superclass of CLASS within CLASSES.
@@ -326,7 +473,7 @@ return a class-stub."
         (map-put classes superclass-name superclass))
       superclass)))
 
-(defun klassified--build-class-hiearchy (classes)
+(defun klassified--classes-to-class-hierarchy (classes)
   "Create a class hierarchy for the map of CLASSES.
 
 CLASSES maps a class name to a class."
@@ -338,14 +485,20 @@ CLASSES maps a class name to a class."
                                          (klassified-class-name class2))))
     hierarchy))
 
+(defun klassified--class-hierarchy-at-point (&optional js-buffer)
+  "Build hierarchy of class around point in JS-BUFFER.
+
+Return (hierarchy class)"
+  (with-current-buffer (or js-buffer (current-buffer))
+    (let* ((project-hierarchy (klassified--make-project-hierarchy))
+           (class (klassified--class-at-point js-buffer)))
+      (list (hierarchy-extract-tree project-hierarchy class) class))))
+
 (defun klassified--actionp-find-file (class &optional _indent)
   "Open file at point defining CLASS.
 
 Ignore INDENT."
-  (find-file (klassified-class-full-filepath class))
-  (widen)
-  (goto-char (point-min))
-  (forward-line (1- (klassified-class-line class))))
+  (klassified-goto-class class))
 
 (defun klassified--labelfn-class (class indent)
   "Render CLASS prefixed with INDENT."
@@ -358,12 +511,29 @@ Ignore INDENT."
    class
    indent))
 
+(defun klassified--labelfn-method (method indent)
+  "Render METHOD prefixed with INDENT."
+  (funcall
+   (hierarchy-labelfn-indent
+    (lambda (item indent)
+      (funcall (hierarchy-labelfn-button-if
+                (lambda (method _) (insert (klassified-method-classname method)))
+                (lambda (method _) (not (klassified-class-stub-p (klassified-method-class method))))
+                (lambda (method _) (klassified-goto-method method)))
+               item indent)
+      (when (klassified-method-implemented-p method)
+        (insert " "
+                (propertize (klassified-method-name method)
+                            'font-lock-face 'font-lock-comment-face)))))
+   method
+   indent))
+
 (defun klassified--make-project-hierarchy (&optional directory)
   "Return hierarchy of all classes under DIRECTORY.
 
 DIRECTORY default to `klassified-project-path'."
   (when-let ((directory (or directory (klassified-project-path))))
-    (klassified--build-class-hiearchy
+    (klassified--classes-to-class-hierarchy
      (klassified--search-collect-classes
       (klassified--search-run-ag directory)))))
 
@@ -378,12 +548,15 @@ BUFFER defaults to `current-buffer'."
                               line-start
                               (+ space)
                               ,(klassified-class-name class)
-                              line-end))
+                              (any space)))
                            nil t)
         (back-to-indentation)
       (goto-char (point-min)))))
 
-(defun klassified--show-hierarchy-tabulated (hierarchy &optional buffer)
+
+;;; Viewing
+
+(defun klassified--show-class-hierarchy-tabulated (hierarchy &optional buffer)
   "Show HIERARCHY in a tabulated list in BUFFER.
 
 BUFFER defaults to a buffer named \"klassified-hierarchy\".
@@ -396,21 +569,43 @@ Returns buffer."
     (or buffer
         (get-buffer-create "klassified-hierarchy")))))
 
+(defun klassified--show-method-hierarchy-tabulated (hierarchy &optional buffer)
+  "Show HIERARCHY in a tabulated list in BUFFER.
+
+BUFFER defaults to a buffer named \"klassified-hierarchy\".
+
+Returns buffer."
+  (switch-to-buffer
+   (hierarchy-tabulated-display
+    hierarchy
+    #'klassified--labelfn-method
+    (or buffer
+        (get-buffer-create "klassified-hierarchy")))))
+
 (defun klassified-show-hierarchy-project (&optional directory)
   "Show hierarchy of all classes under DIRECTORY.
 
 DIRECTORY default to `klassified-project-path'."
   (interactive)
-  (klassified--show-hierarchy-tabulated (klassified--make-project-hierarchy directory)))
+  (klassified--show-class-hierarchy-tabulated (klassified--make-project-hierarchy directory)))
 
-(defun klassified-show-hierarchy-class-at-point (&optional js-buffer)
+(defun klassified-show-class-hierarchy-at-point (&optional js-buffer)
   "Show hierarchy of class at point in JS-BUFFER.
 
-JS-BUFFER defaults to `current-buffer'."
+JS-BUFFER defaults to current buffer."
   (interactive)
-  (let ((project-hierarchy (klassified--make-project-hierarchy))
-        (class (klassified--class-at-point js-buffer)))
-    (klassified--show-hierarchy-tabulated (hierarchy-extract-tree project-hierarchy class))
+  (cl-destructuring-bind (class-hierarchy class) (klassified--class-hierarchy-at-point js-buffer)
+    (klassified--show-class-hierarchy-tabulated class-hierarchy)
+    (klassified--move-point-to-class-in-hierarchy-buffer class)))
+
+(defun klassified-show-method-hierarchy-at-point (&optional js-buffer)
+  "Show hierarchy of method at point in JS-BUFFER.
+
+JS-BUFFER defaults to current buffer."
+  (interactive)
+  (cl-destructuring-bind (method-hierarchy _method class)
+      (klassified--method-hierarchy-at-point js-buffer)
+    (klassified--show-method-hierarchy-tabulated method-hierarchy)
     (klassified--move-point-to-class-in-hierarchy-buffer class)))
 
 (eval-when-compile
@@ -418,7 +613,8 @@ JS-BUFFER defaults to `current-buffer'."
 
 (with-eval-after-load "js"
   (define-key js-mode-map (kbd "C-c h p") #'klassified-show-hierarchy-project)
-  (define-key js-mode-map (kbd "C-c h c") #'klassified-show-hierarchy-class-at-point))
+  (define-key js-mode-map (kbd "C-c h c") #'klassified-show-class-hierarchy-at-point)
+  (define-key js-mode-map (kbd "C-c h m") #'klassified-show-method-hierarchy-at-point))
 
 (provide 'klassified)
 

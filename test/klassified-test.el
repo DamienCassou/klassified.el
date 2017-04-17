@@ -145,9 +145,50 @@
         (string-match klassified--search-class-definition string)
         (should (equal (match-string 5 string) "abstractSubclass")))))
 
-  (describe "does not match"
-    (it "a `subclass' function call"
+  (describe "does not match a class"
+    (it "with a `subclass' function call"
       (expect "var a = subclass(" :not :to-match klassified--search-class-definition)))
+
+  (describe "can match a method definition"
+    (it "starting with my"
+      (expect "my.foo = function(" :to-match klassified-method-definition))
+
+    (it "starting with that"
+      (expect "that.foo = function(" :to-match klassified-method-definition)))
+
+  (describe "does not match a method"
+    (it "starting with let"
+      (expect "let foo = function(" :not :to-match klassified-method-definition))
+
+    (it "starting with var"
+      (expect "var foo = function(" :not :to-match klassified-method-definition))
+
+    (it "with a function definition"
+      (expect "function foo(" :not :to-match klassified-method-definition))
+
+    (it "call"
+      (expect "my.foo(" :not :to-match klassified-method-definition)))
+
+  (describe "extracts method name from method definition"
+    (it "starting with my"
+      (let ((string "my.foo = function("))
+        (string-match klassified-method-definition string)
+        (expect (match-string 1 string) :to-equal "my.foo")))
+
+    (it "starting with that"
+      (let ((string "that.foo = function("))
+        (string-match klassified-method-definition string)
+        (expect (match-string 1 string) :to-equal "that.foo")))
+
+    (it "with camel-case"
+      (let ((string "that.fooBar = function("))
+        (string-match klassified-method-definition string)
+        (expect (match-string 1 string) :to-equal "that.fooBar")))
+
+    (it "with underscore"
+      (let ((string "that.foo_bar = function("))
+        (string-match klassified-method-definition string)
+        (expect (match-string 1 string) :to-equal "that.foo_bar"))))
 
   (describe "can analyze search results"
     (describe "and match a class definition"
