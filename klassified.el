@@ -563,7 +563,7 @@ BUFFER defaults to `current-buffer'."
 BUFFER defaults to a buffer named \"klassified-hierarchy\".
 
 Returns buffer."
-  (switch-to-buffer
+  (pop-to-buffer
    (hierarchy-tabulated-display
     hierarchy
     #'klassified--labelfn-class
@@ -576,7 +576,7 @@ Returns buffer."
 BUFFER defaults to a buffer named \"klassified-hierarchy\".
 
 Returns buffer."
-  (switch-to-buffer
+  (pop-to-buffer
    (hierarchy-tabulated-display
     hierarchy
     #'klassified--labelfn-method
