@@ -538,8 +538,8 @@ DIRECTORY default to `klassified-project-path'."
      (klassified--search-collect-classes
       (klassified--search-run-ag directory)))))
 
-(defun klassified--move-point-to-class-in-hierarchy-buffer (class &optional buffer)
-  "Move point to CLASS in BUFFER.
+(defun klassified--move-point-to-class-in-hierarchy-buffer (class-name &optional buffer)
+  "Move point to CLASS-NAME in BUFFER.
 
 BUFFER defaults to `current-buffer'."
   (with-current-buffer (or buffer (current-buffer))
@@ -547,9 +547,10 @@ BUFFER defaults to `current-buffer'."
     (if (re-search-forward (rx-to-string
                             `(and
                               line-start
-                              (+ space)
-                              ,(klassified-class-name class)
-                              (any space)))
+                              (* space)
+                              ,class-name
+                              (optional (and " " (*? anything)))
+                              line-end))
                            nil t)
         (back-to-indentation)
       (goto-char (point-min)))))
@@ -599,7 +600,7 @@ JS-BUFFER defaults to current buffer."
   (interactive)
   (cl-destructuring-bind (class-hierarchy class) (klassified--class-hierarchy-at-point js-buffer)
     (klassified--show-class-hierarchy-tabulated class-hierarchy)
-    (klassified--move-point-to-class-in-hierarchy-buffer class)))
+    (klassified--move-point-to-class-in-hierarchy-buffer (klassified-class-name class))))
 
 ;;;###autoload
 (defun klassified-show-method-hierarchy-at-point (&optional js-buffer)
@@ -610,7 +611,7 @@ JS-BUFFER defaults to current buffer."
   (cl-destructuring-bind (method-hierarchy _method class)
       (klassified--method-hierarchy-at-point js-buffer)
     (klassified--show-method-hierarchy-tabulated method-hierarchy)
-    (klassified--move-point-to-class-in-hierarchy-buffer class)))
+    (klassified--move-point-to-class-in-hierarchy-buffer (klassified-class-name class))))
 
 (defvar klassified-js-mode-map
   (let ((map (make-sparse-keymap)))

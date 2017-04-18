@@ -390,6 +390,42 @@
                     "bird" "" "" "/tmp" "/tmp/foo/animal.js" 1)))
         (expect (klassified-class-name class) :to-equal "bird"))))
 
+  (describe "move-point-to-class-in-hierarchy-buffer"
+    (it "can move to non-indented class"
+      (assess-with-preserved-buffer-list
+       (with-temp-buffer
+         (insert "animal\nbird")
+         (klassified--move-point-to-class-in-hierarchy-buffer "bird")
+         (expect (looking-at-p "bird$")))))
+
+    (it "can move to indented class"
+      (assess-with-preserved-buffer-list
+       (with-temp-buffer
+         (insert "animal\n  bird")
+         (klassified--move-point-to-class-in-hierarchy-buffer "bird")
+         (expect (looking-at-p "bird$")))))
+
+    (it "moves point when buffer contains classes"
+      (assess-with-preserved-buffer-list
+       (with-temp-buffer
+         (insert "animal\n  bird\n    dove\n    pigeon\n")
+         (klassified--move-point-to-class-in-hierarchy-buffer "dove")
+         (expect (looking-at-p "dove")))))
+
+    (it "moves point when buffer contains methods"
+      (assess-with-preserved-buffer-list
+       (with-temp-buffer
+         (insert "animal that.alert\n  bird\n    dove that.alert\n    pigeon that.alert\n")
+         (klassified--move-point-to-class-in-hierarchy-buffer "dove")
+         (expect (looking-at-p "dove")))))
+
+    (it "does not stop at the first prefix"
+      (assess-with-preserved-buffer-list
+       (with-temp-buffer
+         (insert "foo12\nfoo\n")
+         (klassified--move-point-to-class-in-hierarchy-buffer "foo")
+         (expect (looking-at-p "foo$"))))))
+
   (describe "search-regexp-to-pcre"
     (it "calls `xref--regexp-to-extended'"
       (spy-on 'xref--regexp-to-extended :and-return-value "foo")
