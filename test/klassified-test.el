@@ -283,14 +283,14 @@
       (assess-with-preserved-buffer-list
        (assess-with-filesystem '(("animal.js"
                                   "let animal = object.abstractSubclass((that, my) => {}\n"))
-                               (assess-with-temp-buffers
-                                ((ag-search
-                                  (insert "animal.js:1:let animal = object.abstractSubclass((that, my) => {}\n")))
-                                (spy-on 'klassified--search-run-ag :and-return-value ag-search)
-                                (let ((class (assess-with-find-file "animal.js"
-                                                                    (klassified--class-at-point)))
-                                      (hierarchy (klassified--make-project-hierarchy "foo/")))
-                                  (expect (hierarchy-has-item hierarchy class) :to-be-truthy)))))))
+         (assess-with-temp-buffers
+             ((ag-search
+               (insert "animal.js:1:let animal = object.abstractSubclass((that, my) => {}\n")))
+           (spy-on 'klassified--search-run-ag :and-return-value ag-search)
+           (let ((class (assess-with-find-file "animal.js"
+                          (klassified--class-at-point)))
+                 (hierarchy (klassified--make-project-hierarchy "foo/")))
+             (expect (hierarchy-has-item hierarchy class) :to-be-truthy)))))))
 
   (describe "current-line"
     (it "detects line in widen buffer"
@@ -355,13 +355,13 @@
   (describe "project-path"
     (it "searches for gulpfile.js"
       (assess-with-filesystem '(("project/animals" ("gulpfile.js" "js/animal.js")))
-                              (assess-with-find-file "project/animals/js/animal.js"
-                                                     (expect (klassified-project-path) :to-match "project/animals$"))))
+        (assess-with-find-file "project/animals/js/animal.js"
+          (expect (klassified-project-path) :to-match "project/animals$"))))
 
     (it "returns `default-directory' when no project file"
       (assess-with-filesystem '("project/animals/js/animal.js")
-                              (assess-with-find-file "project/animals/js/animal.js"
-                                                     (expect (klassified-project-path) :to-match "project/animals/js$")))))
+        (assess-with-find-file "project/animals/js/animal.js"
+          (expect (klassified-project-path) :to-match "project/animals/js$")))))
 
   (describe "class-make-from-match-data"
     (it "extracts data"
@@ -404,8 +404,8 @@
       (spy-on 'call-process :and-return-value 1)
       (spy-on 'error)
       (assess-with-filesystem '("foo/")
-                              (assess-with-preserved-buffer-list
-                               (klassified--search-run-ag "foo")))
+        (assess-with-preserved-buffer-list
+         (klassified--search-run-ag "foo")))
       (expect 'call-process :to-have-been-called)
       (expect 'error :to-have-been-called))
 
@@ -413,8 +413,8 @@
       (spy-on 'call-process :and-return-value 0)
       (spy-on 'klassified--search-regexp-to-pcre)
       (assess-with-filesystem '("foo/")
-                              (assess-with-preserved-buffer-list
-                               (klassified--search-run-ag "foo")))
+        (assess-with-preserved-buffer-list
+         (klassified--search-run-ag "foo")))
       (expect 'klassified--search-regexp-to-pcre :to-have-been-called)))
 
   (describe "search-collect-next-class"
