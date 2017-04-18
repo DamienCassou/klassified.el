@@ -452,8 +452,9 @@ to PROJECTPATH.
 LINE is the line number at which MATCH-DATA started matching.  LINE
 defaults to result of function `klassified--current-line'."
   (when-let ((projectpath (or projectpath (klassified-project-path)))
-             (filepath (or filepath (buffer-file-name)))
-             (filepath (file-relative-name filepath projectpath))
+             (filepath (or filepath (and
+                                     (buffer-file-name)
+                                     (file-relative-name (buffer-file-name) projectpath))))
              (line (or line (klassified--current-line))))
     (klassified--position-make
      :file filepath
@@ -582,6 +583,7 @@ Returns buffer."
     (or buffer
         (get-buffer-create "klassified-hierarchy")))))
 
+;;;###autoload
 (defun klassified-show-hierarchy-project (&optional directory)
   "Show hierarchy of all classes under DIRECTORY.
 
@@ -589,6 +591,7 @@ DIRECTORY default to `klassified-project-path'."
   (interactive)
   (klassified--show-class-hierarchy-tabulated (klassified--make-project-hierarchy directory)))
 
+;;;###autoload
 (defun klassified-show-class-hierarchy-at-point (&optional js-buffer)
   "Show hierarchy of class at point in JS-BUFFER.
 
@@ -598,6 +601,7 @@ JS-BUFFER defaults to current buffer."
     (klassified--show-class-hierarchy-tabulated class-hierarchy)
     (klassified--move-point-to-class-in-hierarchy-buffer class)))
 
+;;;###autoload
 (defun klassified-show-method-hierarchy-at-point (&optional js-buffer)
   "Show hierarchy of method at point in JS-BUFFER.
 
@@ -608,13 +612,21 @@ JS-BUFFER defaults to current buffer."
     (klassified--show-method-hierarchy-tabulated method-hierarchy)
     (klassified--move-point-to-class-in-hierarchy-buffer class)))
 
-(eval-when-compile
-  (defvar js-mode-map))
+(defvar klassified-js-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c h p") #'klassified-show-hierarchy-project)
+    (define-key map (kbd "C-c h c") #'klassified-show-class-hierarchy-at-point)
+    (define-key map (kbd "C-c h m") #'klassified-show-method-hierarchy-at-point)
+    map)
+  "Keymap for `klassified-js-mode'.")
 
-(with-eval-after-load "js"
-  (define-key js-mode-map (kbd "C-c h p") #'klassified-show-hierarchy-project)
-  (define-key js-mode-map (kbd "C-c h c") #'klassified-show-class-hierarchy-at-point)
-  (define-key js-mode-map (kbd "C-c h m") #'klassified-show-method-hierarchy-at-point))
+;;;###autoload
+(define-minor-mode klassified-js-mode
+  "Minor mode to interact with klassified from JavaScript files.
+
+\\{klassified-js-mode-map}"
+  :lighter " Klassified"
+  :keymap klassified-js-mode-map)
 
 (provide 'klassified)
 
