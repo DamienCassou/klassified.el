@@ -2,8 +2,9 @@
 (source melpa)
 
 (package-file "klassified.el")
+(files "klassified-core.el" "klassified-jsbuffer.el")
 
-(depends-on "hierarchy" :git "https://github.com/DamienCassou/hierarchy.git")
+(depends-on "hierarchy")
 
 (development
  (depends-on "ert")
