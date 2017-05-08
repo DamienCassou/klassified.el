@@ -23,6 +23,8 @@
 
 ;;; Code:
 
+(load "test/test-helper")
+
 (require 'klassified-search)
 
 (require 'buttercup)

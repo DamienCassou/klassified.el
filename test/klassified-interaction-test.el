@@ -23,7 +23,10 @@
 
 ;;; Code:
 
+(load "test/test-helper")
+
 (require 'klassified-interaction)
+
 (require 'buttercup)
 (require 'assess)
 

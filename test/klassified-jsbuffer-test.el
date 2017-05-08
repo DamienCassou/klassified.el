@@ -23,6 +23,8 @@
 
 ;;; Code:
 
+(load "test/test-helper")
+
 (require 'klassified-jsbuffer)
 
 (require 'buttercup)
@@ -57,8 +59,6 @@
         (insert "  return object.subclass(\n")
         (klassified-jsbuffer-class-at-point))
       (expect 'klassified-core-class-make-from-match-data :to-have-been-called))))
-
-
 
 (provide 'klassified-jsbuffer-test)
 ;;; klassified-jsbuffer-test.el ends here
