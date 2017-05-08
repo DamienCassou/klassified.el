@@ -25,22 +25,21 @@
 
 (require 'klassified-core)
 (require 'klassified-jsbuffer)
+(require 'klassified-search)
 (require 'hierarchy)
 
-(defun klassified-class-hierarchy-to-method-hierarchy (class-hierarchy method-name)
+(defun klassified-hierarchy-class-to-method-hierarchy (class-hierarchy method-name)
   "Convert CLASS-HIERARCHY to a method hierarchy for METHOD-NAME."
   (hierarchy-map-hierarchy (lambda (class _)
                              (klassified-jsbuffer-class-to-method method-name class))
                            class-hierarchy))
-
-
 
 (defun klassified-hierarchy-from-class-at-point (&optional js-buffer)
   "Build hierarchy of class around point in JS-BUFFER.
 
 Return (hierarchy class)"
   (with-current-buffer (or js-buffer (current-buffer))
-    (let* ((project-hierarchy (klassified--make-project-hierarchy))
+    (let* ((project-hierarchy (klassified-hierarchy-make-from-project))
            (class (klassified-jsbuffer-class-at-point js-buffer)))
       (list (hierarchy-extract-tree project-hierarchy class) class))))
 
@@ -53,7 +52,7 @@ JS-BUFFER defaults to current buffer."
   (cl-destructuring-bind (class-hierarchy class)
       (klassified-hierarchy-from-class-at-point js-buffer)
     (let* ((method (klassified-jsbuffer-method-at-point js-buffer))
-           (method-hierarchy (klassified-class-hierarchy-to-method-hierarchy
+           (method-hierarchy (klassified-hierarchy-class-to-method-hierarchy
                               class-hierarchy
                               (klassified-core-method-name method))))
       (list method-hierarchy method class))))
@@ -70,14 +69,29 @@ CLASSES maps a class name to a class."
                                          (klassified-core-class-name class2))))
     hierarchy))
 
-(defun klassified--make-project-hierarchy (&optional directory)
+(defun klassified-hierarchy-make-from-project (&optional directory)
   "Return hierarchy of all classes under DIRECTORY.
 
 DIRECTORY default to `klassified-project-path'."
   (when-let ((directory (or directory (klassified-core-buffer-project-path))))
-    (klassified-hierarchy--make-from-classes
-     (klassified-search-collect-classes
-      (klassified-search-run-ag directory)))))
+    (klassified-hierarchy--make-from-classes (klassified-search-collect-classes directory))))
+
+(defun klassified-hierarchy-move-point-to-class (class-name &optional buffer)
+  "Move point to CLASS-NAME in BUFFER.
+
+BUFFER defaults to `current-buffer'."
+  (with-current-buffer (or buffer (current-buffer))
+    (goto-char (point-min))
+    (if (re-search-forward (rx-to-string
+                            `(and
+                              line-start
+                              (* space)
+                              ,class-name
+                              (optional (and " " (*? anything)))
+                              line-end))
+                           nil t)
+        (back-to-indentation)
+      (goto-char (point-min)))))
 
 (provide 'klassified-hierarchy)
 ;;; klassified-hierarchy.el ends here

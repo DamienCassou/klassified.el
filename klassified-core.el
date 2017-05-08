@@ -105,7 +105,7 @@ project.  In this class, the superclass can be a class-stub."
   (goto-char (point-min))
   (forward-line (1- (klassified-core-class-line class))))
 
-(defvar klassified-core--class-regexp
+(defvar klassified-core-class-regexp
   (rx
    (or "return "
        ;; optional variable declaration (2)
@@ -123,32 +123,10 @@ When matching, this regexp puts the class name (if any) inside group 2 and
 the superclass reference inside group 4.  The subclass creation function is
 put in group 5.")
 
-(defun klassified-core--class-make-from-match-data (match-data &optional projectpath filepath line)
+(defun klassified-core-class-make-from-match-data (match-data &optional projectpath filepath line)
   "Create a new class based on MATCH-DATA.
 
 This calls `klassified-core--class-make-from-extracted-data' with strings
-extracted from MATCH-DATA and PROJECTPATH, FILEPATH and LINE unchanged.
-
-MATCH-DATA at 2 should be the class name, nil or the empty string.
-
-MATCH-DATA at 4 should be the string used to reference the super class.
-
-MATCH-DATA at 5 should be the JS function name used to create the
-subclass (i.e., \"subclass\" or \"abstractSuclass\")."
-  (save-match-data
-    (set-match-data match-data)
-    (klassified-core--class-make-from-extracted-data
-     (match-string-no-properties 2) ; optional class name
-     (match-string-no-properties 4) ; superclass reference
-     (match-string-no-properties 5) ; subclass message send
-     projectpath
-     filepath
-     line)))
-
-(defun klassified-class-make-from-match-data (match-data &optional projectpath filepath line)
-  "Create a new class based on MATCH-DATA.
-
-This calls `klassified-class-make-from-extracted-data' with strings
 extracted from MATCH-DATA and PROJECTPATH, FILEPATH and LINE unchanged.
 
 MATCH-DATA at 2 should be the class name, nil or the empty string.
@@ -200,7 +178,7 @@ defaults to result of function `klassified--current-line'."
     (klassified-core--class-make
      :name class-name
      :superclass-ref (klassified-core--classref-make :name superclass-ref)
-     :definition (klassified-core--position-make projectpath filepath line)
+     :definition (klassified-core-position-make projectpath filepath line)
      :abstractp (equal "abstractSubclass" subclassfn))))
 
 (defun klassified-core-get-superclass (class classes)
@@ -260,6 +238,26 @@ does not."
 
 When matching, this regexp puts the method name inside group 1.")
 
+(defun klassified-core-move-to-method (method-name)
+  "Move point to METHOD-NAME after current position.
+
+Return point if METHOD-NAME is found, nil if not."
+  (let (matched)
+    (while
+        (and
+         (setq matched (re-search-forward klassified-core--method-regexp nil t))
+         (not (string= (match-string 1) method-name))))
+    (if (and matched (string= (match-string 1) method-name))
+        (point)
+      nil)))
+
+(defun klassified-core-goto-method (method)
+  "Open file defining METHOD and move point there."
+  (klassified-core-goto-class (klassified-core-method-class method))
+  (if (klassified-core-method-implemented-p method)
+      (klassified-core-move-to-method (klassified-core-method-name method))
+    (message "Method not implemented in this class")))
+
 
 ;;; Project
 
@@ -281,10 +279,41 @@ DIRECTORY defaults fo `default-directory'.
 The project's path is DIRECTORY or a parent.  The project's path
 is detected by searching typical JS project files (e.g.,
 gulp.js)."
-  (directory-file-name
-   (if-let ((project-path (locate-dominating-file directory "gulpfile.js")))
-       (expand-file-name project-path)
-     (expand-file-name directory))))
+  (let ((directory (or directory default-directory)))
+    (directory-file-name
+     (if-let ((project-path (locate-dominating-file directory "gulpfile.js")))
+         (expand-file-name project-path)
+       (expand-file-name directory)))))
+
+(defun klassified-core--current-line (&optional pos)
+  "Return (widen) line number at position POS.
+If POS is nil, use current buffer location."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (line-number-at-pos pos))))
+
+(defun klassified-core-position-make (&optional projectpath filepath line)
+  "Return a new position.
+
+PROJECTPATH is a path to the JavaScript project containing all classes.
+PROJECTPATH defaults to the result of function `klassified-project-path'.
+
+FILEPATH is a path to a JavaScript file relative to PROJECTPATH.  FILEPATH
+defaults to result of function `buffer-file-name' interpreted relatively
+to PROJECTPATH.
+
+LINE is the line number at which MATCH-DATA started matching.  LINE
+defaults to result of function `klassified--current-line'."
+  (when-let ((projectpath (or projectpath (klassified-core-project-path)))
+             (filepath (or filepath (and
+                                     (buffer-file-name)
+                                     (file-relative-name (buffer-file-name) projectpath))))
+             (line (or line (klassified-core--current-line))))
+    (klassified-core--position-make
+     :file filepath
+     :line line
+     :project projectpath)))
 
 (provide 'klassified-core)
 ;;; klassified-core.el ends here

@@ -36,10 +36,10 @@ buffer is used instead."
   (with-current-buffer (or js-buffer (current-buffer))
     (save-excursion
       (back-to-indentation)
-      (if (looking-at klassified-core--class-regexp)
-          (klassified-core--class-make-from-match-data (match-data))
-        (when (re-search-backward klassified-core--class-regexp nil t)
-          (klassified-core--class-make-from-match-data (match-data)))))))
+      (if (looking-at klassified-core-class-regexp)
+          (klassified-core-class-make-from-match-data (match-data))
+        (when (re-search-backward klassified-core-class-regexp nil t)
+          (klassified-core-class-make-from-match-data (match-data)))))))
 
 (defun klassified-jsbuffer-method-at-point (&optional js-buffer)
   "Return method at point in JS-BUFFER.
@@ -55,19 +55,6 @@ JS-BUFFER defaults to current buffer."
            :definition (klassified-core--position-make)
            :class class))))))
 
-(defun klassified-jsbuffer-move-to-method (method-name)
-  "Move point to METHOD-NAME after current position.
-
-Return point if METHOD-NAME is found, nil if not."
-  (let (matched)
-    (while
-        (and
-         (setq matched (re-search-forward klassified-core--method-regexp nil t))
-         (not (string= (match-string 1) method-name))))
-    (if (and matched (string= (match-string 1) method-name))
-        (point)
-      nil)))
-
 (defun klassified-jsbuffer-class-to-method (method-name class)
   "Return the method named METHOD-NAME defined in CLASS if any."
   (let ((ghost-method (klassified-core--method-make
@@ -79,7 +66,7 @@ Return point if METHOD-NAME is found, nil if not."
       (save-excursion
         (save-restriction
           (klassified-core-goto-class class)
-          (if (klassified-jsbuffer-move-to-method method-name)
+          (if (klassified-core-move-to-method method-name)
               (klassified-core--method-make
                :name method-name
                :definition (klassified-core--position-make)

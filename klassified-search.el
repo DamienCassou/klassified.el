@@ -3,6 +3,7 @@
 ;; Copyright (C) 2017  Damien Cassou
 
 ;; Author: Damien Cassou <damien@cassou.me>
+;; Package-Requires: ((emacs "25"))
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -25,10 +26,12 @@
 
 (require 'klassified-core)
 
+(require 'xref)
+
 (eval-when-compile
   (require 'rx))
 
-(defvar klassified-search--ag-class-regexp
+(defvar klassified-search-ag-class-regexp
   (concat
    (rx
     line-start
@@ -43,7 +46,7 @@
     (group-n 3 (any "1-9") (* digit))
     ":"
     (* blank))
-   klassified-core--class-regexp)
+   klassified-core-class-regexp)
   "A regexp matching an ag-match of a class definition in a search result.
 
 This is the same as `klassified-core--class-regexp' except this also
@@ -61,11 +64,11 @@ Return a `klassified-class' or nil if no class if found at point.  The
 point must be at the beginning of a class definition.
 
 SEARCH-BUFFER must be a search result buffer as produced by
-`klassified--search-run-ag'.  If SEARCH-BUFFER is nil, the current buffer is
+`klassified-search--run-ag'.  If SEARCH-BUFFER is nil, the current buffer is
 used instead."
   (with-current-buffer (or search-buffer (current-buffer))
-    (when (looking-at klassified-search--ag-class-regexp)
-      (klassified-class-make-from-match-data
+    (when (looking-at klassified-search-ag-class-regexp)
+      (klassified-core-class-make-from-match-data
        (match-data)
        (directory-file-name default-directory)
        (match-string 1)
@@ -77,22 +80,54 @@ used instead."
 Move point after match.
 
 Return the class, nil if none."
-  (when (re-search-forward klassified--search-ag-class-definition nil t)
+  (when (re-search-forward klassified-search-ag-class-regexp nil t)
     (beginning-of-line)
-    (let ((class (klassified--search-class-at-point)))
+    (let ((class (klassified-search--class-at-point)))
       (forward-line)
       class)))
 
-(defun klassified--search-collect-classes (&optional buffer)
-  "Return a map of all classes in BUFFER.
+(defun klassified-search--collect-classes-in-buffer (&optional search-buffer)
+  "Return a map of all classes in SEARCH-BUFFER.
 
 If BUFFER is nil, use `current-buffer' instead."
   (let ((classes (make-hash-table :test 'equal)))
-    (with-current-buffer (or buffer (current-buffer))
+    (with-current-buffer (or search-buffer (current-buffer))
       (goto-char (point-min))
-      (while (when-let ((class (klassified--search-collect-next-class)))
-               (puthash (klassified-class-name class) class classes))))
+      (while (when-let ((class (klassified-search--collect-next-class)))
+               (puthash (klassified-core-class-name class) class classes))))
     classes))
+
+(defun klassified-search--regexp-to-pcre (regexp)
+  "Convert REGEXP to pcre form."
+  (replace-regexp-in-string "(\\?[0-9]*:" "("
+                            (xref--regexp-to-extended regexp)))
+
+(defun klassified-search--run-ag (directory)
+  "Return buffer containing result of running ag inside DIRECTORY."
+  (let ((buffer (get-buffer-create (concat "klassified-search--" directory))))
+    (with-current-buffer buffer
+      (erase-buffer)
+      (cd directory)
+      (let ((status (call-process
+                     "/usr/bin/ag"
+                     nil            ; stdin
+                     '(t t)         ; stdout ⇒ current buffer
+                     t              ; redisplay
+                     "--js" "--nocolor" "--nogroup" "--nomultiline"
+                     "--numbers" "--nopager" "--case-sensitive"
+                     "--silent" "--width=200"
+                     "--context=0"
+                     ;; if speed is an issue, we could replace this regexp by a
+                     ;; much faster one (e.g., "\.(abstractS|s)ubclass\(")
+                     (klassified-search--regexp-to-pcre klassified-core-class-regexp)
+                     ".")))
+        (unless (equal status 0)
+          (error "Klassified: can't run ag (return status is '%s')" status))))
+    buffer))
+
+(defun klassified-search-collect-classes (directory)
+  "Return a map of all classes in DIRECTORY."
+  (klassified-search--collect-classes-in-buffer (klassified-search--run-ag directory)))
 
 (provide 'klassified-search)
 ;;; klassified-search.el ends here

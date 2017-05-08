@@ -2,7 +2,6 @@
 (source melpa)
 
 (package-file "klassified.el")
-(files "klassified-core.el" "klassified-jsbuffer.el")
 
 (depends-on "hierarchy")
 
