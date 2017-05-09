@@ -63,15 +63,13 @@ JS-BUFFER defaults to current buffer."
                        :class class)))
     (if (klassified-core-class-stub-p class)
         ghost-method
-      (save-excursion
-        (save-restriction
-          (klassified-core-goto-class class)
-          (if (klassified-core-move-to-method method-name)
-              (klassified-core--method-make
-               :name method-name
-               :definition (klassified-core--position-make)
-               :class class)
-            ghost-method))))))
+      (with-current-buffer (klassified-core-move-to-class class)
+        (if (klassified-core-move-to-method-in-current-buffer method-name)
+            (klassified-core--method-make
+             :name method-name
+             :definition (klassified-core-position-make)
+             :class class)
+          ghost-method)))))
 
 (provide 'klassified-jsbuffer)
 ;;; klassified-jsbuffer.el ends here

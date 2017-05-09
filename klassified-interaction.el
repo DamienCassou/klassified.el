@@ -27,11 +27,15 @@
 (require 'klassified-core)
 (require 'klassified-hierarchy)
 
-(defun klassified-interaction--actionp-find-file (class &optional _indent)
-  "Open file at point defining CLASS.
+(defun klassified-interaction-goto-class (class &optional _indent)
+  "Make file defining CLASS visible and move point there."
+  (pop-to-buffer
+   (klassified-core-move-to-class class)))
 
-Ignore INDENT."
-  (klassified-core-goto-class class))
+(defun klassified-interaction-goto-method (method &optional _indent)
+  "Make file defining METHOD visible and move point there."
+  (pop-to-buffer
+   (klassified-core-move-to-method method)))
 
 (defun klassified-interaction--labelfn-class (class indent)
   "Render CLASS prefixed with INDENT."
@@ -40,7 +44,7 @@ Ignore INDENT."
     (hierarchy-labelfn-button-if
      (lambda (class _) (insert (klassified-core-class-name class)))
      (lambda (class _) (not (klassified-core-class-stub-p class)))
-     #'klassified-interaction--actionp-find-file))
+     #'klassified-interaction-goto-class))
    class
    indent))
 
@@ -52,7 +56,7 @@ Ignore INDENT."
       (funcall (hierarchy-labelfn-button-if
                 (lambda (method _) (insert (klassified-core-method-classname method)))
                 (lambda (method _) (not (klassified-core-class-stub-p (klassified-core-method-class method))))
-                (lambda (method _) (klassified-core-goto-method method)))
+                #'klassified-interaction-goto-method)
                item indent)
       (when (klassified-core-method-implemented-p method)
         (insert " "

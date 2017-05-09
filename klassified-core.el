@@ -98,12 +98,17 @@ This is useful when a class has a superclass that is part of another
 project.  In this class, the superclass can be a class-stub."
   (klassified-core--class-make :name name :stubp t))
 
-(defun klassified-core-goto-class (class)
-  "Open file defining CLASS and move point there."
-  (find-file (klassified-core-class-full-filepath class))
-  (widen)
-  (goto-char (point-min))
-  (forward-line (1- (klassified-core-class-line class))))
+(defun klassified-core-buffer-editing-class (class)
+  "Return a buffer visiting CLASS."
+  (find-file-noselect (klassified-core-class-full-filepath class)))
+
+(defun klassified-core-move-to-class (class)
+  "Return a buffer defining CLASS and move point there."
+  (with-current-buffer (klassified-core-buffer-editing-class class)
+    (widen)
+    (goto-char (point-min))
+    (forward-line (1- (klassified-core-class-line class)))
+    (current-buffer)))
 
 (defvar klassified-core-class-regexp
   (rx
@@ -238,7 +243,7 @@ does not."
 
 When matching, this regexp puts the method name inside group 1.")
 
-(defun klassified-core-move-to-method (method-name)
+(defun klassified-core-move-to-method-in-current-buffer (method-name)
   "Move point to METHOD-NAME after current position.
 
 Return point if METHOD-NAME is found, nil if not."
@@ -251,12 +256,13 @@ Return point if METHOD-NAME is found, nil if not."
         (point)
       nil)))
 
-(defun klassified-core-goto-method (method)
-  "Open file defining METHOD and move point there."
-  (klassified-core-goto-class (klassified-core-method-class method))
-  (if (klassified-core-method-implemented-p method)
-      (klassified-core-move-to-method (klassified-core-method-name method))
-    (message "Method not implemented in this class")))
+(defun klassified-core-move-to-method (method)
+  "Return a buffer defining METHOD and move point there."
+  (with-current-buffer (klassified-core-move-to-class (klassified-core-method-class method))
+    (if (klassified-core-method-implemented-p method)
+        (klassified-core-move-to-method-in-current-buffer (klassified-core-method-name method))
+      (message "This class does not define %s" (klassified-core-method-name method)))
+    (current-buffer)))
 
 
 ;;; Project
