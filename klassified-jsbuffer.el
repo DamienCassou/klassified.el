@@ -49,11 +49,10 @@ JS-BUFFER defaults to current buffer."
     (save-excursion
       (let* ((class (klassified-jsbuffer-class-at-point)))
         (back-to-indentation)
-        (when (looking-at klassified-core--method-regexp)
-          (klassified-core--method-make
-           :name (match-string-no-properties 1)
-           :definition (klassified-core--position-make)
-           :class class))))))
+        (if (looking-at klassified-core--method-regexp)
+            (klassified-core-method-make-from-match-data (match-data) class)
+          (when (re-search-backward klassified-core--method-regexp)
+            (klassified-core-method-make-from-match-data (match-data) class)))))))
 
 (defun klassified-jsbuffer-class-to-method (method-name class)
   "Return the method named METHOD-NAME defined in CLASS if any."
