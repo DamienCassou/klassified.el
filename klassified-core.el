@@ -264,6 +264,27 @@ Return point if METHOD-NAME is found, nil if not."
       (message "This class does not define %s" (klassified-core-method-name method)))
     (current-buffer)))
 
+(defun klassified-core-method-make-from-match-data (match-data class)
+  "Create a new methood based on MATCH-DATA inside CLASS.
+
+This calls `klassified-core--position-make' with strings
+extracted from MATCH-DATA.
+
+MATCH-DATA at 1 should be the method name.
+
+MATCH-DATA at 2 should be the class name, nil or the empty string.
+
+MATCH-DATA at 4 should be the string used to reference the super class.
+
+MATCH-DATA at 5 should be the JS function name used to create the
+subclass (i.e., \"subclass\" or \"abstractSuclass\")."
+  (save-match-data
+    (set-match-data match-data)
+    (klassified-core--method-make
+     :name (match-string-no-properties 1)
+     :definition (klassified-core-position-make)
+     :class class)))
+
 
 ;;; Project
 
