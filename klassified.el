@@ -4,7 +4,7 @@
 
 ;; Author: Damien Cassou <damien@cassou.me>
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "25"))
+;; Package-Requires: ((emacs "25") (hierarchy "0.5.0"))
 ;; GIT: https://github.com/DamienCassou/klassified
 
 ;; This file is not part of GNU Emacs.
@@ -30,6 +30,7 @@
 ;;; Code:
 
 (require 'klassified-interaction)
+(require 'hierarchy)
 
 (provide 'klassified)
 ;;; klassified.el ends here
