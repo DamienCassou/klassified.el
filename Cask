@@ -3,7 +3,7 @@
 
 (package-file "klassified.el")
 
-(depends-on "hierarchy")
+(depends-on "hierarchy" "0.5.0")
 
 (development
  (depends-on "ert")
