@@ -36,10 +36,10 @@ buffer is used instead."
   (with-current-buffer (or js-buffer (current-buffer))
     (save-excursion
       (back-to-indentation)
-      (if (looking-at klassified-core-class-regexp)
-          (klassified-core-class-make-from-match-data (match-data))
-        (when (re-search-backward klassified-core-class-regexp nil t)
-          (klassified-core-class-make-from-match-data (match-data)))))))
+      (when (or (looking-at klassified-core-class-regexp)
+                (re-search-backward klassified-core-class-regexp nil t)
+                (re-search-forward klassified-core-class-regexp nil t))
+        (klassified-core-class-make-from-match-data (match-data))))))
 
 (defun klassified-jsbuffer-method-at-point (&optional js-buffer)
   "Return method at point in JS-BUFFER.
