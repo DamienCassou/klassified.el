@@ -37,7 +37,7 @@ clean-all : clean
 clean-elc :
 	rm -f *.elc test/*.elc
 
-clean :
+clean : clean-elc
 	rm -rf $(DIST)
 	rm -f *-pkg.el
 
