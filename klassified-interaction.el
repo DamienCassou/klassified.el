@@ -133,7 +133,7 @@ JS-BUFFER defaults to current buffer."
   "Minor mode to interact with klassified from JavaScript files.
 
 \\{klassified-interaction-js-mode-map}"
-  :lighter " Klassified"
+  :lighter " klassified"
   :keymap klassified-interaction-js-mode-map)
 
 (provide 'klassified-interaction)
