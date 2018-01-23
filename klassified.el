@@ -5,7 +5,7 @@
 ;; Author: Damien Cassou <damien@cassou.me>
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "25") (hierarchy "0.4.0"))
-;; GIT: https://github.com/DamienCassou/klassified
+;; URL: https://github.com/DamienCassou/klassified
 
 ;; This file is not part of GNU Emacs.
 
