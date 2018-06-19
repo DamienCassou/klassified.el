@@ -81,11 +81,6 @@
         (let* ((default-directory "/project"))
           (expect (klassified-core-class-p (klassified-search--class-at-point))))))
 
-    (it "calls `current-buffer' if no buffer is passed"
-      (spy-on 'current-buffer :and-return-value (get-buffer-create "foo"))
-      (klassified-search--class-at-point)
-      (expect 'current-buffer :to-have-been-called))
-
     (it "does not call `current-buffer' if a buffer is passed"
       (spy-on 'current-buffer)
       (klassified-search--class-at-point (get-buffer-create "foo"))
