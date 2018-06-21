@@ -9,3 +9,6 @@ TAGS
 elpa
 /.cask
 dist
+/emake.el
+/emake.mk
+/.elpa*

@@ -3,6 +3,9 @@
 ;; Copyright (C) 2017  Damien Cassou
 
 ;; Author: Damien Cassou <damien@cassou.me>
+;; Url: https://gitlab.petton.fr/DamienCassou/klassified
+;; Package-requires: ((emacs "25.1"))
+;; Version: 0.1.0
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -19,7 +22,7 @@
 
 ;;; Commentary:
 
-;;
+;; This file provides the entry points of klassified.
 
 ;;; Code:
 
@@ -122,11 +125,11 @@ JS-BUFFER defaults to current buffer."
 
 (defvar klassified-interaction-js-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c h p") #'klassified-interaction-show-hierarchy-project)
-    (define-key map (kbd "C-c h c") #'klassified-interaction-show-class-hierarchy-at-point)
-    (define-key map (kbd "C-c h m") #'klassified-interaction-show-method-hierarchy-at-point)
+    (define-key map (kbd "C-c C-h C-p") #'klassified-interaction-show-hierarchy-project)
+    (define-key map (kbd "C-c C-h C-c") #'klassified-interaction-show-class-hierarchy-at-point)
+    (define-key map (kbd "C-c C-h C-m") #'klassified-interaction-show-method-hierarchy-at-point)
     map)
-  "Keymap for `klassified-interaction-js-mode'.")
+  "Keymap for function `klassified-interaction-js-mode'.")
 
 ;;;###autoload
 (define-minor-mode klassified-interaction-js-mode

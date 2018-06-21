@@ -1,9 +1,11 @@
-;;; klassified-search.el --- Search for klassified structures within multiple files  -*- lexical-binding: t; -*-
+;;; klassified-search.el --- Search for klassified structures within files  -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2017  Damien Cassou
 
 ;; Author: Damien Cassou <damien@cassou.me>
-;; Package-Requires: ((emacs "25"))
+;; Url: https://gitlab.petton.fr/DamienCassou/klassified
+;; Package-requires: ((emacs "25.1"))
+;; Version: 0.1.0
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -20,7 +22,8 @@
 
 ;;; Commentary:
 
-;;
+;; Create class/superclass relations by grepping through files in a
+;; project.
 
 ;;; Code:
 
